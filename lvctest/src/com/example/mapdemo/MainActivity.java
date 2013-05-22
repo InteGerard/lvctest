@@ -70,7 +70,7 @@ import android.widget.Toast;
 /**
  * This shows how UI settings can be toggled.
  */
-public class UiSettingsDemoActivity extends FragmentActivity implements LocationListener {
+public class MainActivity extends FragmentActivity implements LocationListener {
     private GoogleMap mMap;
     private UiSettings mUiSettings;
     
