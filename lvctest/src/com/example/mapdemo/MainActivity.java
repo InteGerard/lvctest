@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-
 //@TODO: compare coarse locations, could include if user phone orientation, if face down, likely to have lower signal
-// make into km, 2 DOP
-// get error - compare all data with GPS
 	
-	package com.example.mapdemo;
+package com.example.mapdemo;
+
+/* DISCLAIMER
+ * Please bear in mind that this app was whipped together in a weekend! Email if further detail is desired: gerardoleary@gmail.com
+ * Skip to line ~364 for details on querying GLM server to find cell tower locations with an Async task.
+ */
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -33,8 +35,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.List;
-
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -56,14 +56,11 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.FragmentActivity;
 import android.telephony.CellLocation;
-import android.telephony.NeighboringCellInfo;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
 import android.util.Log;
-import android.view.View;
-import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,16 +68,10 @@ import android.widget.Toast;
  * This shows how UI settings can be toggled.
  */
 public class MainActivity extends FragmentActivity implements LocationListener {
-    private GoogleMap mMap;
-    private UiSettings mUiSettings;
-    
-    //private float cellTowerLat = 53.1619;
-    //private float cellTowerLng = -9.0256;
-    
-    
-    private LatLng cellTowerLoc = new LatLng(53.269, -9); //galway
+
+    private LatLng cellTowerLoc = new LatLng(53.269, -9); //Galway
     //private static final LatLng cellTowerLoc = new LatLng(53.2, -6.15); //Dublin
-    
+    private GoogleMap mMap;   
 	private LocationManager lm;
 	private TelephonyManager tlm;
 	private int RSSI = -1;
@@ -132,7 +123,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 	    	    
 	    	    updateCellLocation(CID, LAC);
 	    	    
-	    	    //check if the result is valid
+	    	    //check if the result is valid (initial value changed)
 				if(cellLatitude != -1){
 					updateDistance();
 					updateLVC();
@@ -146,27 +137,21 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 	    	public void onMessageWaitingIndicatorChanged(boolean mwi) {}
 	    	public void onServiceStateChanged(ServiceState serviceState) {}
 	    	public void onSignalStrengthChanged(int asu) {		
-	    		
-	    		RSSI = (asu*2)-113;
+	    	    	    		
+	    		RSSI = (asu*2)-113;		//http://en.wikipedia.org/wiki/Mobile_phone_signal#ASU	
 				updateLVC();
 			    updateCsvFile();
 	    		updateDisplay();
-	    	    //http://en.wikipedia.org/wiki/Mobile_phone_signal#ASU	    		
+    		
 	    	}
 	    };
 
-		tlm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-		//GsmCellLocation cellLocation = (GsmCellLocation) tlm.getCellLocation();
-	       
-	       
+		tlm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE); 
 	    String networkOperator = tlm.getNetworkOperator();
-
 	    if (networkOperator != null) {
 	        MCC = Integer.parseInt(networkOperator.substring(0, 3));
 	        MNC = Integer.parseInt(networkOperator.substring(3));
 	    }
-		
-
 
 		tlm.listen(phoneStateListener,
 				PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR |
@@ -181,6 +166,13 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 		//http://android-coding.blogspot.ie/2011/06/convert-celllocation-to-real-location.html
 		
     }
+ 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setUpMapIfNeeded();
+    }  
+    
     
     private void updateCellLocation(int CID, int LAC) {
     	
@@ -196,7 +188,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
     }
     
     private void updateDistance() {
-    	
+    	//ensure prev value is set before continuing
 		if (prevCellLatitude == -1) {
 			prevCellLatitude = cellLatitude;
 			prevCellLongitude = cellLongitude;					
@@ -223,8 +215,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 	    lat2 = glsLatitude;
 	    lng2 = glsLongitude;
 	    Location.distanceBetween(lat1, lng1, lat2, lng2, dist);
-	    GLSdist = dist[0];	//distance between the towers
-	    
+	    GLSdist = dist[0];	//GLS distance from tower
 	    
 	    //errors:
 		lat1 = glsLatitude;
@@ -272,10 +263,6 @@ public class MainActivity extends FragmentActivity implements LocationListener {
     	lvcLongitude = cellLongitude + ((cellLongitude - prevCellLongitude)/2);
     
     }
-
-    
-    
-    
     
     private void updateDisplay() {
     	
@@ -322,7 +309,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 	    t.setText(" LVC: " + String.format("%.6f", lvcLatitude) + ", " + String.format("%.6f", lvcLongitude));
 	    
 	    
-	    /*****Error*/
+	    /*****Error*****/
 	    t=(TextView)findViewById(R.id.GLSErrText);			
 	    t.setText(" GLSerr: " + String.format("%.2f", GLSerror) + " m");	
 	    
@@ -358,7 +345,6 @@ public class MainActivity extends FragmentActivity implements LocationListener {
         
     }   
     
-    
     private void setUpLocationManagers() {  
 		context = getApplicationContext();
 		lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -375,42 +361,10 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 		}
     }
 	
-	
-    @Override
-    protected void onResume() {
-        super.onResume();
-        setUpMapIfNeeded();
-    }
-
     
-	public void onLocationChanged(Location loc) {
-
-		if (loc.getProvider().equals(LocationManager.GPS_PROVIDER)) {
-			gpsLatitude = loc.getLatitude();
-			gpsLongitude = loc.getLongitude();			
-		}
-		
-		if (loc.getProvider().equals(LocationManager.NETWORK_PROVIDER)) {
-			glsLatitude = loc.getLatitude();
-			glsLongitude = loc.getLongitude();
-			/*
-			CharSequence text = "GSM: Lat: " + loc.getLatitude() + "\nLong: " + loc.getLongitude();
-			int duration = Toast.LENGTH_SHORT;
-			Toast toast = Toast.makeText(context, text, duration);
-			toast.show();*/
-		}
-
-		updateDistance();
-		updateDisplay();
-	    /* TOAST
-		CharSequence text = "Lat: " + loc.getLatitude() + "\nLong: " + loc.getLongitude() + "\nDISTANCE: " + dist[0];
-		int duration = Toast.LENGTH_SHORT;
-		Toast toast = Toast.makeText(context, text, duration);
-		toast.show();*/
-		
-	}
-	
-	
+    /*Async task to handle GLM query to get cell location
+     * See for more info: http://stackoverflow.com/questions/6343166/android-os-networkonmainthreadexception
+     */
     class RetreiveCellLocationTask extends AsyncTask<int[], Void, int[]> {
 		@Override
 		protected int[] doInBackground(int[]... arg0) {
@@ -466,7 +420,6 @@ public class MainActivity extends FragmentActivity implements LocationListener {
         return result;
     }
     
-    //http://stackoverflow.com/questions/6343166/android-os-networkonmainthreadexception
     private void WriteData(OutputStream out, int cid, int lac)
     		  throws IOException		  
     {    
@@ -492,25 +445,38 @@ public class MainActivity extends FragmentActivity implements LocationListener {
     	dataOutputStream.writeInt(0);
     	dataOutputStream.flush();    	
     }
+    
+    /* implements LocationListener
+     * overrides
+     */   
+	@Override
+	public void onLocationChanged(Location loc) {
 
- 
+		if (loc.getProvider().equals(LocationManager.GPS_PROVIDER)) {
+			gpsLatitude = loc.getLatitude();
+			gpsLongitude = loc.getLongitude();			
+		}
+		
+		if (loc.getProvider().equals(LocationManager.NETWORK_PROVIDER)) {
+			glsLatitude = loc.getLatitude();
+			glsLongitude = loc.getLongitude();
+			/*
+			CharSequence text = "GSM: Lat: " + loc.getLatitude() + "\nLong: " + loc.getLongitude();
+			int duration = Toast.LENGTH_SHORT;
+			Toast toast = Toast.makeText(context, text, duration);
+			toast.show();*/
+		}
 
+		updateDistance();
+		updateDisplay();
+	    /* TOAST
+		CharSequence text = "Lat: " + loc.getLatitude() + "\nLong: " + loc.getLongitude() + "\nDISTANCE: " + dist[0];
+		int duration = Toast.LENGTH_SHORT;
+		Toast toast = Toast.makeText(context, text, duration);
+		toast.show();*/
+		
+	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-
 	@Override
 	public void onProviderDisabled(String arg0) {
 		// TODO Auto-generated method stub
@@ -529,6 +495,9 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 		
 	}
 
+	/*
+	 * Map functions
+	 */
     private void setUpMapIfNeeded() {
         // Do a null check to confirm that we have not already instantiated the map.
         if (mMap == null) {
@@ -544,7 +513,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 
     private void setUpMap() {
         mMap.setMyLocationEnabled(true);
-        mUiSettings = mMap.getUiSettings();
+        mMap.getUiSettings();
     }
 
     /**
@@ -558,42 +527,12 @@ public class MainActivity extends FragmentActivity implements LocationListener {
         }
         return true;
     } 
-    
-    
-    
 
-
-    
-    
-        
+    /* Generating CSV file to record data, opens and closes in one function
+     * Not efficient but performance was fine in this application.
+     */       
     private void updateCsvFile()
     {
-    	/*
-    	 * 	private LocationManager lm;
-    	private TelephonyManager tlm;
-    	private int RSSI = -1;
-    	private int CID = -1;
-    	private int LAC = -1;
-    	private int MCC = -1;
-    	private int MNC = -1;	
-    	private double cellLatitude = -1;
-    	private double cellLongitude = -1;
-    	private double prevCellLatitude = -1;
-    	private double prevCellLongitude = -1;
-    	private double gpsLatitude = -1;
-    	private double gpsLongitude = -1;
-    	private double glsLatitude = -1;
-    	private double glsLongitude = -1;
-    	private double lvcLatitude = -1;
-    	private double lvcLongitude = -1;
-    	private double GPSdist = -1;
-    	private double GLSdist = -1;
-    	private double LVCdist = -1;
-    	private double GLSerror = -1;
-    	private double LVCerror = -1;
-
-    	 */
-    	
         try
         {
         	String sFileName = "LVCdata.csv";
@@ -635,10 +574,4 @@ public class MainActivity extends FragmentActivity implements LocationListener {
         } 
 
      }
-
-    
-    
 }
-
-
-
